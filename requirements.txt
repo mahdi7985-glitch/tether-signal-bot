@@ -1,4 +1,4 @@
 nobitex
-python-telegram-bot==20.7
+balethon
 python-dotenv
 requests
