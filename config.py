@@ -4,11 +4,11 @@ from dotenv import load_dotenv
 # بارگذاری متغیرهای محیطی از فایل .env
 load_dotenv()
 
-# ==================== تنظیمات ربات ====================
+# ==================== تنظیمات ربات بله ====================
 
-# توکن‌های ربات (از فایل .env خوانده می‌شوند)
-TELEGRAM_TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID")
+# توکن و آیدی ربات بله (از فایل .env خوانده می‌شوند)
+BALE_TOKEN = os.getenv("BALE_TOKEN")
+BALE_CHAT_ID = os.getenv("BALE_CHAT_ID")
 
 # ==================== تنظیمات معاملاتی ====================
 
