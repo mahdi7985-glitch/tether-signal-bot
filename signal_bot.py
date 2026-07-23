@@ -2,7 +2,6 @@ import requests
 from datetime import datetime
 
 # ==================== تنظیمات ====================
-# توکن و آیدی ربات بله (از فایل env یا مستقیم)
 BALE_TOKEN = "124178101:7dLO9-5SsUmHmNkTk7azkyyh62s8P-DVrd4"
 BALE_CHAT_ID = "1049670320"
 
@@ -14,11 +13,9 @@ TOTAL_FEE = 0.38
 
 def get_prices():
     try:
-        # قیمت تتر
         res = requests.get("https://api.nobitex.ir/market/stats?srcCurrency=usdt&dstCurrency=rls", timeout=10)
         tether = float(res.json()['stats']['usdt-rls']['bestSell']) / 10
         
-        # قیمت دلار
         res2 = requests.get("https://api.nobitex.ir/market/stats?srcCurrency=usd&dstCurrency=rls", timeout=10)
         dollar = float(res2.json()['stats']['usd-rls']['bestSell']) / 10
         
@@ -37,7 +34,7 @@ def get_emoji(diff):
 
 def check_opportunity(tether, dollar):
     if tether is None or dollar is None:
-        return "ERROR", "خطا در دریافت قیمت"
+        return "ERROR", "❌ خطا در دریافت قیمت‌ها"
     
     diff = ((tether - dollar) / dollar) * 100
     profit = abs(diff) - TOTAL_FEE
@@ -63,14 +60,18 @@ def check_opportunity(tether, dollar):
         return "BUY", msg
     
     else:
-        msg = f"""⚪ **بازار متعادل**
+        # ✅ پیام "فعلاً خبری نیست" با قیمت‌های لحظه‌ای
+        msg = f"""⚪ **فعلاً خبری نیست**
 
-🔹 اختلاف: {diff:.2f}%
+🔹 اختلاف فعلی: {diff:.2f}%
+🔸 آستانه مورد نیاز: {THRESHOLD_NORMAL}%
+💵 تتر: {tether:,.0f} تومان
+💵 دلار: {dollar:,.0f} تومان
 ⏰ {time}"""
         return "NONE", msg
 
 def send_alert(msg):
-    url = f"https://tapi.bale.ai/bot{BALE_TOKEN}/sendMessage"
+    url = f"https://api.bale.ai/bot{BALE_TOKEN}/sendMessage"
     data = {
         "chat_id": BALE_CHAT_ID,
         "text": msg,
@@ -100,10 +101,13 @@ def main():
     print(f"💵 تتر: {tether:,} | دلار: {dollar:,}")
     print(f"📊 اختلاف: {((tether - dollar) / dollar) * 100:.2f}%")
     
+    # ✅ همیشه پیام بفرست (چه سیگنال، چه "فعلاً خبری نیست")
+    send_alert(message)
+    
     if signal_type != "NONE":
-        send_alert(message)
+        print("✅ سیگنال ارسال شد")
     else:
-        print("⏳ بدون سیگنال")
+        print("⏳ وضعیت عادی - پیام اطلاع‌رسانی ارسال شد")
 
 # ==================== اجرا ====================
 
