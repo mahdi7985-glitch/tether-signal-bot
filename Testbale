@@ -3,16 +3,29 @@ import requests
 BALE_TOKEN = "124178101:7dLO9-5SsUmHmNkTk7azkyyh62s8P-DVrd4"
 BALE_CHAT_ID = "1049670320"
 
-url = f"https://api.bale.ai/bot{BALE_TOKEN}/sendMessage"
+# تست با آدرس api
+url1 = f"https://api.bale.ai/bot{BALE_TOKEN}/sendMessage"
+# تست با آدرس tapi
+url2 = f"https://tapi.bale.ai/bot{BALE_TOKEN}/sendMessage"
+
 data = {
     "chat_id": BALE_CHAT_ID,
     "text": "✅ پیام تست از گیت‌هاب",
     "parse_mode": "Markdown"
 }
 
+print("🔹 تست آدرس api.bale.ai...")
 try:
-    r = requests.post(url, json=data, timeout=10)
-    print(f"🔹 وضعیت: {r.status_code}")
-    print(f"🔹 پاسخ: {r.text}")
+    r1 = requests.post(url1, json=data, timeout=10)
+    print(f"وضعیت: {r1.status_code}")
+    print(f"پاسخ: {r1.text}")
 except Exception as e:
-    print(f"❌ خطا: {e}")
+    print(f"خطا: {e}")
+
+print("\n🔹 تست آدرس tapi.bale.ai...")
+try:
+    r2 = requests.post(url2, json=data, timeout=10)
+    print(f"وضعیت: {r2.status_code}")
+    print(f"پاسخ: {r2.text}")
+except Exception as e:
+    print(f"خطا: {e}")
