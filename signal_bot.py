@@ -1,25 +1,16 @@
-import asyncio
 import time
-from datetime import datetime
-from balethon import Client
-from balethon.objects import Message
 import requests
-import json
+from datetime import datetime
 
 # ==================== تنظیمات ====================
-# اگر از فایل config استفاده می‌کنید:
-# from config import BALE_TOKEN, BALE_CHAT_ID, THRESHOLD_NORMAL, THRESHOLD_STRONG, TOTAL_FEE
-
-# یا مستقیم وارد کنید (برای تست)
-BALE_TOKEN = "124178101:7dLO9-5SsUmHmNkTk7azkyyh62s8P-DVrd3"  # توکن فرضی
-BALE_CHAT_ID = 1049670321  # آیدی چت فرضی
+BALE_TOKEN = "124178101:7dLO9-5SsUmHmNkTk7azkyyh62s8P-DVrd4"  # توکن فرضی
+BALE_CHAT_ID = "1049670320"  # آیدی چت فرضی
 
 THRESHOLD_NORMAL = 1.0  # آستانه ۱٪ (ایموجی آبی)
 THRESHOLD_STRONG = 2.0  # آستانه ۲٪ (ایموجی بنفش)
 TOTAL_FEE = 0.38  # مجموع کارمزدها (درصد)
-CHECK_INTERVAL = 300  # هر ۵ دقیقه یکبار چک کن (به ثانیه)
 
-# ==================== توابع دریافت قیمت ====================
+# ==================== توابع ====================
 
 def get_prices():
     """دریافت قیمت تتر و دلار از نوبیتکس"""
@@ -44,8 +35,6 @@ def get_prices():
     except Exception as e:
         print(f"❌ خطا در دریافت قیمت: {e}")
         return None, None
-
-# ==================== توابع تحلیل ====================
 
 def get_emoji(diff_percent):
     """بر اساس درصد اختلاف، ایموجی مناسب را برمی‌گرداند"""
@@ -101,14 +90,54 @@ def check_opportunity(tether_price, dollar_price):
     
     return signal_type, message
 
-# ==================== ارسال پیام به بله ====================
-
-async def send_message(client, message):
-    """ارسال پیام به ربات بله"""
+def send_to_bale(message):
+    """ارسال پیام به ربات بله با استفاده از API"""
+    url = f"https://api.bale.ai/bot{BALE_TOKEN}/sendMessage"
+    payload = {
+        "chat_id": BALE_CHAT_ID,
+        "text": message,
+        "parse_mode": "Markdown"
+    }
     try:
-        await client.send_message(
-            chat_id=BALE_CHAT_ID,
-            text=message,
+        response = requests.post(url, json=payload, timeout=10)
+        if response.status_code == 200:
+            print("✅ پیام با موفقیت ارسال شد")
+        else:
+            print(f"❌ خطا در ارسال پیام: {response.text}")
+    except Exception as e:
+        print(f"❌ خطا در ارسال پیام: {e}")
+
+# ==================== تابع اصلی ====================
+
+def main():
+    print("🤖 ربات سیگنال‌دهنده راه‌اندازی شد!")
+    print(f"📊 آستانه معمولی: {THRESHOLD_NORMAL}% | آستانه قوی: {THRESHOLD_STRONG}%")
+    print("-" * 50)
+    
+    # دریافت قیمت‌ها
+    tether_price, dollar_price = get_prices()
+    
+    if tether_price and dollar_price:
+        # بررسی فرصت
+        signal_type, message = check_opportunity(tether_price, dollar_price)
+        
+        # چاپ در کنسول
+        print(f"🔄 تتر: {tether_price:,} | دلار: {dollar_price:,}")
+        print(f"📊 اختلاف: {((tether_price - dollar_price) / dollar_price) * 100:.2f}%")
+        print("-" * 50)
+        
+        # ارسال پیام فقط اگر سیگنال وجود داشته باشد
+        if signal_type != "NO_SIGNAL":
+            send_to_bale(message)
+        else:
+            print("⏳ بازار در تعادل - سیگنالی ارسال نشد")
+    else:
+        print("❌ خطا در دریافت قیمت‌ها")
+
+# ==================== اجرا ====================
+
+if __name__ == "__main__":
+    main()            text=message,
             parse_mode="markdown"
         )
         print(f"✅ پیام ارسال شد: {message[:50]}...")
