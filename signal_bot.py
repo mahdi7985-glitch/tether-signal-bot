@@ -71,7 +71,7 @@ def check_opportunity(tether, dollar):
         return "NONE", msg
 
 def send_alert(msg):
-    url = f"https://api.bale.ai/bot{BALE_TOKEN}/sendMessage"
+    url = f"https://tapi.bale.ai/bot{BALE_TOKEN}/sendMessage"
     data = {
         "chat_id": BALE_CHAT_ID,
         "text": msg,
