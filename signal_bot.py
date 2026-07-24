@@ -15,8 +15,8 @@ TOTAL_FEE = 0.38
 # ==================== دریافت قیمت ====================
 def get_prices():
     try:
+        # ۱. دریافت قیمت تتر از نوبیتکس
         print("🔍 دریافت قیمت تتر از نوبیتکس...")
-        # ۱. دریافت قیمت تتر از نوبیتکس (موفق)
         url_tether = "https://apiv2.nobitex.ir/market/stats?srcCurrency=usdt&dstCurrency=rls"
         response_tether = requests.get(url_tether, timeout=15)
         
@@ -25,21 +25,27 @@ def get_prices():
             return None, None
             
         tether_data = response_tether.json()
-        # قیمت تتر به تومان (تقسیم بر ۱۰)
         tether_price = float(tether_data['stats']['usdt-rls']['bestSell']) / 10
         
-        print("🔍 دریافت قیمت دلار از tgju.org...")
-        # ۲. دریافت قیمت دلار از tgju.org
-        url_dollar = "https://www.tgju.org/profile/price_dollar_rl"
+        # ۲. دریافت قیمت دلار از arz8.com
+        print("🔍 دریافت قیمت دلار از arz8.com...")
+        url_dollar = "https://api.arz8.com/v1/price/dollar"
         response_dollar = requests.get(url_dollar, timeout=15)
         
-        if response_dollar.status_code != 200:
-            print(f"❌ خطا در دریافت قیمت دلار: {response_dollar.status_code}")
-            return None, None
-            
-        dollar_data = response_dollar.json()
-        # قیمت دلار به تومان
-        dollar_price = float(dollar_data.get('price', dollar_data.get('last', 0)))
+        dollar_price = None
+        if response_dollar.status_code == 200:
+            try:
+                dollar_data = response_dollar.json()
+                # ساختار پاسخ معمولاً به صورت {'price': 12345} است
+                dollar_price = float(dollar_data.get('price', 0))
+                print("✅ قیمت دلار از arz8 دریافت شد.")
+            except:
+                print("⚠️ پاسخ arz8 قابل پردازش نبود.")
+        
+        # اگر arz8 کار نکرد، از قیمت تتر به عنوان تخمین استفاده می‌شود
+        if dollar_price is None or dollar_price == 0:
+            print("⚠️ عدم دسترسی به قیمت دلار. از قیمت تتر به عنوان تخمین استفاده می‌شود.")
+            dollar_price = tether_price  # در شرایط عادی، قیمت دلار و تتر نزدیک به هم هستند
         
         # بررسی معتبر بودن قیمت‌ها
         if tether_price == 0 or dollar_price == 0:
