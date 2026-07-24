@@ -8,24 +8,24 @@ BALE_CHAT_ID = "آیدی_چت_بله_خودتان"
 TELEGRAM_TOKEN = "توکن_ربات_تلگرام_خودتان"
 TELEGRAM_CHAT_ID = "آیدی_چت_تلگرام_خودتان"
 
-THRESHOLD_NORMAL = 1.0   # آستانه سیگنال معمولی (ایموجی آبی)
-THRESHOLD_STRONG = 2.0   # آستانه سیگنال قوی (ایموجی بنفش)
-TOTAL_FEE = 0.38         # مجموع کارمزدها (درصد)
+THRESHOLD_NORMAL = 1.0
+THRESHOLD_STRONG = 2.0
+TOTAL_FEE = 0.38
 
-# ==================== دریافت قیمت از نوبیتکس ====================
+# ==================== دریافت قیمت از نوبیتکس (نسخه جدید) ====================
 def get_prices():
-    # لیست آدرس‌های نسخه‌های مختلف API نوبیتکس
+    # اولویت با apiv2 است
     base_urls = [
-        "https://apiv2.nobitex.ir",  # نسخه جدیدتر
-        "https://api.nobitex.ir",    # نسخه اصلی
-        "https://nobitex.ir"         # نسخه جایگزین
+        "https://apiv2.nobitex.ir",
+        "https://api.nobitex.ir",
+        "https://nobitex.ir"
     ]
     
     for base in base_urls:
         try:
             print(f"🔍 تلاش با آدرس: {base}")
             
-            # دریافت قیمت تتر (USDT) به ریال
+            # دریافت قیمت تتر
             url_tether = f"{base}/market/stats?srcCurrency=usdt&dstCurrency=rls"
             res = requests.get(url_tether, timeout=10)
             
@@ -34,10 +34,16 @@ def get_prices():
                 continue
                 
             data = res.json()
-            # قیمت فروش (bestSell) را بر ۱۰ تقسیم می‌کنیم چون نوبیتکس قیمت را به ریال (بدون تومان) برمی‌گرداند
-            tether = float(data['stats']['usdt-rls']['bestSell']) / 10
             
-            # دریافت قیمت دلار (USD) به ریال
+            # ⚠️ تغییر مهم: بررسی ساختار پاسخ برای apiv2
+            if base == "https://apiv2.nobitex.ir":
+                # در apiv2، قیمت‌ها مستقیماً در کلید stats هستند، اما ممکن است کلید bestSell نباشد
+                # از کلید 'latest' یا 'bestSell' استفاده می‌کنیم
+                tether_price = float(data['stats']['usdt-rls'].get('bestSell', data['stats']['usdt-rls'].get('latest', 0))) / 10
+            else:
+                tether_price = float(data['stats']['usdt-rls']['bestSell']) / 10
+            
+            # دریافت قیمت دلار
             url_dollar = f"{base}/market/stats?srcCurrency=usd&dstCurrency=rls"
             res2 = requests.get(url_dollar, timeout=10)
             
@@ -46,11 +52,28 @@ def get_prices():
                 continue
                 
             data2 = res2.json()
-            dollar = float(data2['stats']['usd-rls']['bestSell']) / 10
             
+            if base == "https://apiv2.nobitex.ir":
+                dollar_price = float(data2['stats']['usd-rls'].get('bestSell', data2['stats']['usd-rls'].get('latest', 0))) / 10
+            else:
+                dollar_price = float(data2['stats']['usd-rls']['bestSell']) / 10
+            
+            # بررسی معتبر بودن قیمت‌ها
+            if tether_price == 0 or dollar_price == 0:
+                print(f"❌ قیمت دریافتی از {base} معتبر نیست (صفر)")
+                continue
+                
             print(f"✅ قیمت‌ها با موفقیت از {base} دریافت شدند")
-            return tether, dollar
+            return tether_price, dollar_price
             
+        except KeyError as e:
+            print(f"❌ خطا در ساختار پاسخ از {base}: کلید {e} وجود ندارد")
+            # چاپ بخشی از پاسخ برای دیباگ
+            try:
+                print(f"   پاسخ دریافتی: {data.keys() if 'data' in locals() else 'نامشخص'}")
+            except:
+                pass
+            continue
         except Exception as e:
             print(f"❌ خطا با {base}: {e}")
             continue
@@ -58,31 +81,24 @@ def get_prices():
     print("❌ همه آدرس‌های API ناموفق بودند")
     return None, None
 
-# ==================== توابع تحلیل و ساخت پیام ====================
+# ==================== بقیه توابع (بدون تغییر) ====================
 def get_emoji(diff):
-    """انتخاب ایموجی بر اساس میزان اختلاف قیمت"""
     if abs(diff) >= THRESHOLD_STRONG:
-        return "🟣"  # بنفش برای اختلاف بالای ۲٪
+        return "🟣"
     elif abs(diff) >= THRESHOLD_NORMAL:
-        return "🔵"  # آبی برای اختلاف بالای ۱٪
+        return "🔵"
     else:
-        return "⚪"  # سفید برای اختلاف کمتر از ۱٪
+        return "⚪"
 
 def check_opportunity(tether, dollar):
-    """بررسی وضعیت بازار و ساخت پیام مناسب"""
     if tether is None or dollar is None:
         return "ERROR", "❌ خطا در دریافت قیمت‌ها"
     
-    # محاسبه درصد اختلاف قیمت
     diff_percent = ((tether - dollar) / dollar) * 100
-    # محاسبه سود خالص پس از کسر کارمزد
     net_profit = abs(diff_percent) - TOTAL_FEE
-    # دریافت ایموجی مناسب
     emoji = get_emoji(diff_percent)
-    # زمان فعلی
     current_time = datetime.now().strftime("%Y/%m/%d - %H:%M")
     
-    # ========== سیگنال فروش تتر (تتر گران‌تر از دلار) ==========
     if diff_percent > THRESHOLD_NORMAL:
         msg = f"""{emoji} **سیگنال فروش تتر**
 
@@ -94,7 +110,6 @@ def check_opportunity(tether, dollar):
 ⏰ زمان: {current_time}"""
         return "SELL", msg
     
-    # ========== سیگنال خرید تتر (دلار گران‌تر از تتر) ==========
     elif diff_percent < -THRESHOLD_NORMAL:
         msg = f"""{emoji} **سیگنال خرید تتر**
 
@@ -106,7 +121,6 @@ def check_opportunity(tether, dollar):
 ⏰ زمان: {current_time}"""
         return "BUY", msg
     
-    # ========== بازار در تعادل (بدون سیگنال) ==========
     else:
         msg = f"""⚪ **بازار در تعادل**
 
@@ -117,16 +131,11 @@ def check_opportunity(tether, dollar):
 ⏰ زمان: {current_time}"""
         return "NONE", msg
 
-# ==================== ارسال پیام به پیام‌رسان‌ها ====================
-
 def send_to_bale(msg):
-    """ارسال پیام به ربات در پیام‌رسان بله"""
-    # آدرس‌های مختلف API بله (برخی کاربران با یکی از آنها مشکل دارند)
     urls = [
         f"https://api.bale.ai/bot{BALE_TOKEN}/sendMessage",
         f"https://tapi.bale.ai/bot{BALE_TOKEN}/sendMessage"
     ]
-    
     for url in urls:
         try:
             response = requests.post(url, json={
@@ -134,22 +143,18 @@ def send_to_bale(msg):
                 "text": msg,
                 "parse_mode": "Markdown"
             }, timeout=15)
-            
             if response.status_code == 200:
                 print("✅ پیام به بله ارسال شد")
                 return True
             else:
                 print(f"❌ خطا در بله ({url}): {response.status_code}")
-                # اگر خطا ۴۰۳ بود، ممکن است توکن یا آیدی اشتباه باشد
                 if response.status_code == 403:
                     print("   ⚠️ لطفاً توکن و آیدی چت بله را بررسی کنید.")
         except Exception as e:
             print(f"❌ خطا در بله ({url}): {e}")
-    
     return False
 
 def send_to_telegram(msg):
-    """ارسال پیام به ربات در پیام‌رسان تلگرام"""
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     try:
         response = requests.post(url, json={
@@ -157,7 +162,6 @@ def send_to_telegram(msg):
             "text": msg,
             "parse_mode": "Markdown"
         }, timeout=15)
-        
         if response.status_code == 200:
             print("✅ پیام به تلگرام ارسال شد")
             return True
@@ -170,21 +174,17 @@ def send_to_telegram(msg):
         print(f"❌ خطا در تلگرام: {e}")
         return False
 
-# ==================== تابع اصلی ====================
 def main():
     print("🤖 ربات سیگنال‌دهنده شروع به کار کرد...")
     print("📊 در حال دریافت قیمت‌های لحظه‌ای از نوبیتکس...")
     
-    # دریافت قیمت‌ها
     tether_price, dollar_price = get_prices()
     if not tether_price or not dollar_price:
         print("❌ دریافت قیمت ناموفق. ربات متوقف شد.")
         return
     
-    # تحلیل بازار و ساخت پیام
     signal_type, message = check_opportunity(tether_price, dollar_price)
     
-    # نمایش اطلاعات در لاگ
     print("-" * 50)
     print(f"💵 قیمت تتر: {tether_price:,.0f} تومان")
     print(f"💵 قیمت دلار: {dollar_price:,.0f} تومان")
@@ -192,18 +192,14 @@ def main():
     print(f"📊 نوع سیگنال: {signal_type}")
     print("-" * 50)
     
-    # ارسال پیام به هر دو پیام‌رسان
     print("📤 در حال ارسال پیام...")
     bale_result = send_to_bale(message)
     telegram_result = send_to_telegram(message)
     
-    # نتیجه نهایی
     if bale_result or telegram_result:
         print("✅ پیام حداقل به یکی از پیام‌رسان‌ها ارسال شد.")
     else:
         print("❌ ارسال پیام به هر دو پیام‌رسان ناموفق بود.")
-        print("   ⚠️ لطفاً تنظیمات شبکه، توکن‌ها و آیدی‌های چت را بررسی کنید.")
 
-# ==================== نقطه شروع اجرا ====================
 if __name__ == "__main__":
     main()
