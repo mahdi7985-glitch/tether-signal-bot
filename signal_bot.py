@@ -5,8 +5,8 @@ from datetime import datetime
 BALE_TOKEN = "124178101:nDLCPlvd_KlqblUI-6jrbBUCIbx99RRsedU"
 BALE_CHAT_ID = "1049670320"
 
-TELEGRAM_TOKEN = "توکن_ربات_تلگرام_خودتان"
-TELEGRAM_CHAT_ID = "آیدی_چت_تلگرام_خودتان"
+TELEGRAM_TOKEN = "8925877849:AAECDTzPuETHqhUbBfLoTt7O5UespZWOZ7M"
+TELEGRAM_CHAT_ID = "292739287"
 
 # ==================== دریافت قیمت تتر ====================
 def get_tether_price():
