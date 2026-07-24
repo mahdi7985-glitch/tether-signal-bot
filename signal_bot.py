@@ -22,7 +22,7 @@ TOTAL_FEE = 0.38
 def get_prices():
     try:
         res = requests.post(
-            "https://api.nobitex.ir/market/stats",
+            "https://apiv2.nobitex.ir/market/stats",
             json={"srcCurrency": "usdt", "dstCurrency": "rls"},
             timeout=10
         )
@@ -30,7 +30,7 @@ def get_prices():
         tether = float(res.json()['stats']['usdt-rls']['bestSell']) / 10
 
         res2 = requests.post(
-            "https://api.nobitex.ir/market/stats",
+            "https://apiv2.nobitex.ir/market/stats",
             json={"srcCurrency": "usd", "dstCurrency": "rls"},
             timeout=10
         )
