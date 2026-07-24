@@ -30,7 +30,7 @@ def get_prices():
         
         print("🔍 دریافت قیمت دلار از tgju.org...")
         # ۲. دریافت قیمت دلار از tgju.org
-        url_dollar = "https://api.tgju.org/v1/market/price/dollar"
+        url_dollar = "https://www.tgju.org/profile/price_dollar_rl"
         response_dollar = requests.get(url_dollar, timeout=15)
         
         if response_dollar.status_code != 200:
