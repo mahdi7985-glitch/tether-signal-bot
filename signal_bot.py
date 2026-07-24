@@ -2,8 +2,8 @@ import requests
 from datetime import datetime
 
 # ==================== تنظیمات ====================
-BALE_TOKEN = "توکن_ربات_بله_خودتان"
-BALE_CHAT_ID = "آیدی_چت_بله_خودتان"
+BALE_TOKEN = "124178101:nDLCPlvd_KlqblUI-6jrbBUCIbx99RRsedU"
+BALE_CHAT_ID = "1049670320"
 
 TELEGRAM_TOKEN = "توکن_ربات_تلگرام_خودتان"
 TELEGRAM_CHAT_ID = "آیدی_چت_تلگرام_خودتان"
