@@ -12,10 +12,9 @@ THRESHOLD_NORMAL = 1.0
 THRESHOLD_STRONG = 2.0
 TOTAL_FEE = 0.38
 
-# ==================== دریافت قیمت با آدرس‌های جایگزین ====================
+# ==================== دریافت قیمت ====================
 
 def get_prices():
-    # لیست آدرس‌های مختلف نوبیتکس
     base_urls = [
         "https://api.nobitex.ir",
         "https://nobitex.ir",
@@ -26,7 +25,6 @@ def get_prices():
         try:
             print(f"🔍 تلاش با آدرس: {base}")
             
-            # دریافت قیمت تتر
             url_tether = f"{base}/market/stats?srcCurrency=usdt&dstCurrency=rls"
             res = requests.get(url_tether, timeout=10)
             
@@ -37,7 +35,6 @@ def get_prices():
             data = res.json()
             tether = float(data['stats']['usdt-rls']['bestSell']) / 10
             
-            # دریافت قیمت دلار
             url_dollar = f"{base}/market/stats?srcCurrency=usd&dstCurrency=rls"
             res2 = requests.get(url_dollar, timeout=10)
             
@@ -58,7 +55,7 @@ def get_prices():
     print("❌ همه آدرس‌های API ناموفق بودند")
     return None, None
 
-# ==================== بقیه توابع ====================
+# ==================== توابع تحلیل ====================
 
 def get_emoji(diff):
     if abs(diff) >= THRESHOLD_STRONG:
@@ -105,6 +102,8 @@ def check_opportunity(tether, dollar):
 ⏰ {time}"""
         return "NONE", msg
 
+# ==================== ارسال به بله ====================
+
 def send_to_bale(msg):
     urls = [
         f"https://api.bale.ai/bot{BALE_TOKEN}/sendMessage",
@@ -125,6 +124,8 @@ def send_to_bale(msg):
         except Exception as e:
             print(f"❌ خطا در بله ({url}): {e}")
     return False
+
+# ==================== ارسال به تلگرام ====================
 
 def send_to_telegram(msg):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
@@ -159,51 +160,6 @@ def main():
     print(f"💵 تتر: {tether:,} | دلار: {dollar:,}")
     print(f"📊 اختلاف: {((tether - dollar) / dollar) * 100:.2f}%")
     
-    # ارسال به هر دو پیام‌رسان
-    bale_ok = send_to_bale(message)
-    telegram_ok = send_to_telegram(message)
-    
-    if bale_ok or telegram_ok:
-        print("✅ پیام حداقل به یکی از پیام‌رسان‌ها ارسال شد")
-    else:
-        print("❌ ارسال پیام به هر دو پیام‌رسان ناموفق بود")
-
-# ==================== اجرا ====================
-
-if __name__ == "__main__":
-    main()    url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
-    try:
-        r = requests.post(url, json={
-            "chat_id": TELEGRAM_CHAT_ID,
-            "text": msg,
-            "parse_mode": "Markdown"
-        }, timeout=10)
-        if r.status_code == 200:
-            print("✅ پیام به تلگرام ارسال شد")
-            return True
-        else:
-            print(f"❌ خطا در تلگرام: {r.status_code}")
-            return False
-    except Exception as e:
-        print(f"❌ خطا در تلگرام: {e}")
-        return False
-
-# ==================== تابع اصلی ====================
-
-def main():
-    print("🤖 ربات سیگنال‌دهنده شروع به کار کرد...")
-    
-    tether, dollar = get_prices()
-    if not tether or not dollar:
-        print("❌ دریافت قیمت ناموفق")
-        return
-    
-    signal_type, message = check_opportunity(tether, dollar)
-    
-    print(f"💵 تتر: {tether:,} | دلار: {dollar:,}")
-    print(f"📊 اختلاف: {((tether - dollar) / dollar) * 100:.2f}%")
-    
-    # ارسال به هر دو پیام‌رسان
     bale_ok = send_to_bale(message)
     telegram_ok = send_to_telegram(message)
     
