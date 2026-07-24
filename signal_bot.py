@@ -1,41 +1,28 @@
 import requests
 from datetime import datetime
+from bs4 import BeautifulSoup
 import re
 import sys
-
-# بررسی نصب بودن کتابخانه‌های مورد نیاز
-try:
-    from bs4 import BeautifulSoup
-except ImportError:
-    print("❌ کتابخانه 'beautifulsoup4' نصب نیست.")
-    print("📌 لطفاً دستور زیر را اجرا کنید:")
-    print("pip install beautifulsoup4 lxml")
-    sys.exit(1)
 
 # ==================== تنظیمات ====================
 BALE_TOKEN = "124178101:nDLCPlvd_KlqblUI-6jrbBUCIbx99RRsedU"
 BALE_CHAT_ID = "1049670320"
 
-TELEGRAM_TOKEN = "8925877849:AAECDTzPuETHqhUbBfLoTt7O5UespZWOZ7M"
+TELEGRAM_TOKEN = "8925877849:AAECDTzPuETHqhUbFbLoTt7O5UespZWOZ7M"
 TELEGRAM_CHAT_ID = "292739287"
 
-# آستانه‌های سیگنال (به درصد)
-THRESHOLD_NORMAL = 1.0   # آستانه معمولی (ایموجی آبی)
-THRESHOLD_STRONG = 2.0   # آستانه قوی (ایموجی بنفش)
-TOTAL_FEE = 0.38         # مجموع کارمزدها (درصد)
+THRESHOLD_NORMAL = 1.0
+THRESHOLD_STRONG = 2.0
+TOTAL_FEE = 0.38
 
-# ==================== دریافت قیمت دلار از TGJU ====================
+# ==================== دریافت قیمت دلار از TGJU (اصلاح‌شده) ====================
 def get_dollar_price_from_tgju():
-    """
-    دریافت قیمت دلار از سایت TGJU (طلا و ارز)
-    بازگشت: قیمت به تومان (عدد اعشاری) یا None در صورت خطا
-    """
     try:
         print("🔍 تلاش برای دریافت قیمت دلار از TGJU...")
         url = "https://www.tgju.org/profile/price_dollar_rl"
         
         headers = {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         }
         
         response = requests.get(url, headers=headers, timeout=15)
@@ -43,26 +30,30 @@ def get_dollar_price_from_tgju():
         
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # جستجوی عنصر با کلاس قیمت
+        # روش اصلی: جستجوی عنصر با data-col='last'
         price_element = soup.find('span', {'data-col': 'last'})
-        if not price_element:
-            # روش جایگزین: جستجوی اعداد بزرگ در صفحه
-            text = soup.get_text()
-            numbers = re.findall(r'(\d{1,3}(?:,\d{3})*\.?\d*)', text)
-            for num in numbers:
-                clean_num = num.replace(',', '')
-                if clean_num.isdigit():
-                    price = float(clean_num)
-                    if 100000 < price < 1000000:  # قیمت به ریال
-                        print(f"✅ قیمت دلار از TGJU دریافت شد: {price/10:,.0f} تومان")
-                        return price / 10  # تبدیل به تومان
-        else:
+        if price_element:
             price_text = price_element.get_text().strip()
-            clean_price = re.sub(r'[^\d]', '', price_text)
+            clean_price = re.sub(r'[^\d.]', '', price_text)
             if clean_price:
-                price = float(clean_price) / 10
+                price = float(clean_price)
+                if price > 1000:
+                    price = price / 10
                 print(f"✅ قیمت دلار از TGJU دریافت شد: {price:,.0f} تومان")
                 return price
+        
+        # روش جایگزین: جستجوی اعداد بزرگ در صفحه
+        text = soup.get_text()
+        numbers = re.findall(r'(\d{1,3}(?:,\d{3})*\.?\d*)', text)
+        for num in numbers:
+            clean_num = num.replace(',', '')
+            if clean_num.replace('.', '').isdigit():
+                price = float(clean_num)
+                # محدوده منطقی برای قیمت دلار به ریال: ۱۰۰,۰۰۰ تا ۱۰,۰۰۰,۰۰۰
+                if 100000 < price < 10000000:
+                    price = price / 10
+                    print(f"✅ قیمت دلار از TGJU دریافت شد: {price:,.0f} تومان")
+                    return price
         
         print("⚠️ قیمت دلار در TGJU پیدا نشد.")
         return None
@@ -93,14 +84,10 @@ def get_tether_price():
 
 # ==================== دریافت قیمت‌ها ====================
 def get_prices():
-    """دریافت قیمت تتر از نوبیتکس و دلار از TGJU"""
-    
-    # دریافت قیمت تتر
     tether_price = get_tether_price()
     if tether_price is None:
         return None, None
     
-    # دریافت قیمت دلار از TGJU
     dollar_price = get_dollar_price_from_tgju()
     
     # اگر TGJU کار نکرد، از قیمت تتر به عنوان تخمین استفاده می‌شود
@@ -206,14 +193,12 @@ def main():
     print("🤖 ربات سیگنال‌دهنده شروع به کار کرد...")
     print("📊 در حال دریافت قیمت‌های لحظه‌ای...")
     
-    # دریافت قیمت‌ها
     tether_price, dollar_price = get_prices()
     
     if tether_price is None or dollar_price is None:
         print("❌ دریافت قیمت ناموفق. ربات متوقف شد.")
         return
     
-    # تحلیل بازار و ساخت پیام
     signal_type, message = check_opportunity(tether_price, dollar_price)
     
     print("-" * 50)
@@ -225,7 +210,6 @@ def main():
     
     print("📤 در حال ارسال پیام...")
     
-    # ارسال به بله و تلگرام
     bale_result = send_to_bale(message)
     telegram_result = send_to_telegram(message)
     
