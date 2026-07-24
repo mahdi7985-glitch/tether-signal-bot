@@ -12,74 +12,50 @@ THRESHOLD_NORMAL = 1.0
 THRESHOLD_STRONG = 2.0
 TOTAL_FEE = 0.38
 
-# ==================== دریافت قیمت از نوبیتکس (نسخه جدید) ====================
+# ==================== دریافت قیمت از نوبیتکس (با آدرس جدید) ====================
 def get_prices():
-    # اولویت با apiv2 است
-    base_urls = [
-        "https://apiv2.nobitex.ir",
-        "https://api.nobitex.ir",
-        "https://nobitex.ir"
-    ]
-    
-    for base in base_urls:
-        try:
-            print(f"🔍 تلاش با آدرس: {base}")
+    try:
+        print("🔍 تلاش برای دریافت قیمت از نوبیتکس (apiv2)...")
+        base_url = "https://apiv2.nobitex.ir"
+        
+        # دریافت قیمت تتر
+        url_tether = f"{base_url}/market/stats?srcCurrency=usdt&dstCurrency=rls"
+        response_tether = requests.get(url_tether, timeout=15)
+        
+        if response_tether.status_code != 200:
+            print(f"❌ خطا در دریافت قیمت تتر: {response_tether.status_code}")
+            return None, None
             
-            # دریافت قیمت تتر
-            url_tether = f"{base}/market/stats?srcCurrency=usdt&dstCurrency=rls"
-            res = requests.get(url_tether, timeout=10)
+        tether_data = response_tether.json()
+        # استفاده از کلید 'bestSell' یا در صورت نبود، 'latest'
+        tether_price = float(tether_data['stats']['usdt-rls'].get('bestSell', tether_data['stats']['usdt-rls'].get('latest', 0))) / 10
+        
+        # دریافت قیمت دلار
+        url_dollar = f"{base_url}/market/stats?srcCurrency=usd&dstCurrency=rls"
+        response_dollar = requests.get(url_dollar, timeout=15)
+        
+        if response_dollar.status_code != 200:
+            print(f"❌ خطا در دریافت قیمت دلار: {response_dollar.status_code}")
+            return None, None
             
-            if res.status_code != 200:
-                print(f"❌ خطا در دریافت تتر: {res.status_code}")
-                continue
-                
-            data = res.json()
+        dollar_data = response_dollar.json()
+        dollar_price = float(dollar_data['stats']['usd-rls'].get('bestSell', dollar_data['stats']['usd-rls'].get('latest', 0))) / 10
+        
+        # بررسی معتبر بودن قیمت‌ها
+        if tether_price == 0 or dollar_price == 0:
+            print("❌ قیمت دریافتی معتبر نیست (صفر)")
+            return None, None
             
-            # ⚠️ تغییر مهم: بررسی ساختار پاسخ برای apiv2
-            if base == "https://apiv2.nobitex.ir":
-                # در apiv2، قیمت‌ها مستقیماً در کلید stats هستند، اما ممکن است کلید bestSell نباشد
-                # از کلید 'latest' یا 'bestSell' استفاده می‌کنیم
-                tether_price = float(data['stats']['usdt-rls'].get('bestSell', data['stats']['usdt-rls'].get('latest', 0))) / 10
-            else:
-                tether_price = float(data['stats']['usdt-rls']['bestSell']) / 10
-            
-            # دریافت قیمت دلار
-            url_dollar = f"{base}/market/stats?srcCurrency=usd&dstCurrency=rls"
-            res2 = requests.get(url_dollar, timeout=10)
-            
-            if res2.status_code != 200:
-                print(f"❌ خطا در دریافت دلار: {res2.status_code}")
-                continue
-                
-            data2 = res2.json()
-            
-            if base == "https://apiv2.nobitex.ir":
-                dollar_price = float(data2['stats']['usd-rls'].get('bestSell', data2['stats']['usd-rls'].get('latest', 0))) / 10
-            else:
-                dollar_price = float(data2['stats']['usd-rls']['bestSell']) / 10
-            
-            # بررسی معتبر بودن قیمت‌ها
-            if tether_price == 0 or dollar_price == 0:
-                print(f"❌ قیمت دریافتی از {base} معتبر نیست (صفر)")
-                continue
-                
-            print(f"✅ قیمت‌ها با موفقیت از {base} دریافت شدند")
-            return tether_price, dollar_price
-            
-        except KeyError as e:
-            print(f"❌ خطا در ساختار پاسخ از {base}: کلید {e} وجود ندارد")
-            # چاپ بخشی از پاسخ برای دیباگ
-            try:
-                print(f"   پاسخ دریافتی: {data.keys() if 'data' in locals() else 'نامشخص'}")
-            except:
-                pass
-            continue
-        except Exception as e:
-            print(f"❌ خطا با {base}: {e}")
-            continue
-    
-    print("❌ همه آدرس‌های API ناموفق بودند")
-    return None, None
+        print(f"✅ قیمت‌ها با موفقیت از نوبیتکس دریافت شدند")
+        print(f"💵 دلار: {dollar_price:,.0f} | تتر: {tether_price:,.0f} تومان")
+        return tether_price, dollar_price
+        
+    except KeyError as e:
+        print(f"❌ خطا در ساختار پاسخ: کلید {e} وجود ندارد")
+        return None, None
+    except Exception as e:
+        print(f"❌ خطا در دریافت قیمت: {e}")
+        return None, None
 
 # ==================== بقیه توابع (بدون تغییر) ====================
 def get_emoji(diff):
@@ -176,7 +152,7 @@ def send_to_telegram(msg):
 
 def main():
     print("🤖 ربات سیگنال‌دهنده شروع به کار کرد...")
-    print("📊 در حال دریافت قیمت‌های لحظه‌ای از نوبیتکس...")
+    print("📊 در حال دریافت قیمت‌های لحظه‌ای...")
     
     tether_price, dollar_price = get_prices()
     if not tether_price or not dollar_price:
