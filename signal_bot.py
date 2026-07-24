@@ -164,6 +164,18 @@ def main():
     else:
         print("❌ ارسال پیام به هر دو پیام‌رسان ناموفق بود")
 
+import http.client
+
+conn = http.client.HTTPSConnection("apiv2.nobitex.ir")
+payload = ''
+headers = {
+  'Accept': 'application/json'
+}
+conn.request("GET", "/market/stats", payload, headers)
+res = conn.getresponse()
+data = res.read()
+print(data.decode("utf-8"))
+
 # ==================== اجرا ====================
 
 if __name__ == "__main__":
