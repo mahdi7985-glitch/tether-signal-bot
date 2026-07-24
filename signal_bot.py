@@ -1,7 +1,16 @@
 import requests
 from datetime import datetime
-from bs4 import BeautifulSoup
 import re
+import sys
+
+# بررسی نصب بودن کتابخانه‌های مورد نیاز
+try:
+    from bs4 import BeautifulSoup
+except ImportError:
+    print("❌ کتابخانه 'beautifulsoup4' نصب نیست.")
+    print("📌 لطفاً دستور زیر را اجرا کنید:")
+    print("pip install beautifulsoup4 lxml")
+    sys.exit(1)
 
 # ==================== تنظیمات ====================
 BALE_TOKEN = "124178101:nDLCPlvd_KlqblUI-6jrbBUCIbx99RRsedU"
