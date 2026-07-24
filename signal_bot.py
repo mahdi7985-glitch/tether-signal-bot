@@ -1,5 +1,7 @@
 import requests
 from datetime import datetime
+from bs4 import BeautifulSoup
+import re
 
 # ==================== تنظیمات ====================
 BALE_TOKEN = "124178101:nDLCPlvd_KlqblUI-6jrbBUCIbx99RRsedU"
@@ -13,8 +15,55 @@ THRESHOLD_NORMAL = 1.0   # آستانه معمولی (ایموجی آبی)
 THRESHOLD_STRONG = 2.0   # آستانه قوی (ایموجی بنفش)
 TOTAL_FEE = 0.38         # مجموع کارمزدها (درصد)
 
-# ==================== دریافت قیمت‌ها ====================
-def get_prices():
+# ==================== دریافت قیمت دلار از TGJU ====================
+def get_dollar_price_from_tgju():
+    """
+    دریافت قیمت دلار از سایت TGJU (طلا و ارز)
+    بازگشت: قیمت به تومان (عدد اعشاری) یا None در صورت خطا
+    """
+    try:
+        print("🔍 تلاش برای دریافت قیمت دلار از TGJU...")
+        url = "https://www.tgju.org/profile/price_dollar_rl"
+        
+        headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+        
+        response = requests.get(url, headers=headers, timeout=15)
+        response.raise_for_status()
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
+        # جستجوی عنصر با کلاس قیمت
+        price_element = soup.find('span', {'data-col': 'last'})
+        if not price_element:
+            # روش جایگزین: جستجوی اعداد بزرگ در صفحه
+            text = soup.get_text()
+            numbers = re.findall(r'(\d{1,3}(?:,\d{3})*\.?\d*)', text)
+            for num in numbers:
+                clean_num = num.replace(',', '')
+                if clean_num.isdigit():
+                    price = float(clean_num)
+                    if 100000 < price < 1000000:  # قیمت به ریال
+                        print(f"✅ قیمت دلار از TGJU دریافت شد: {price/10:,.0f} تومان")
+                        return price / 10  # تبدیل به تومان
+        else:
+            price_text = price_element.get_text().strip()
+            clean_price = re.sub(r'[^\d]', '', price_text)
+            if clean_price:
+                price = float(clean_price) / 10
+                print(f"✅ قیمت دلار از TGJU دریافت شد: {price:,.0f} تومان")
+                return price
+        
+        print("⚠️ قیمت دلار در TGJU پیدا نشد.")
+        return None
+        
+    except Exception as e:
+        print(f"❌ خطا در دریافت قیمت از TGJU: {e}")
+        return None
+
+# ==================== دریافت قیمت تتر از نوبیتکس ====================
+def get_tether_price():
     try:
         print("🔍 دریافت قیمت تتر از نوبیتکس...")
         url_tether = "https://apiv2.nobitex.ir/market/stats?srcCurrency=usdt&dstCurrency=rls"
@@ -22,80 +71,45 @@ def get_prices():
         
         if response_tether.status_code != 200:
             print(f"❌ خطا در دریافت قیمت تتر: {response_tether.status_code}")
-            return None, None
+            return None
             
         tether_data = response_tether.json()
         tether_price = float(tether_data['stats']['usdt-rls']['bestSell']) / 10
-        
-        print("🔍 دریافت قیمت دلار از کانال بله...")
-        # دریافت آخرین قیمت دلار از کانال
-        dollar_price = get_dollar_from_channel()
-        
-        # اگر قیمت دلار دریافت نشد، از قیمت تتر به عنوان تخمین استفاده می‌شود
-        if dollar_price is None or dollar_price == 0:
-            print("⚠️ عدم دسترسی به قیمت دلار. از قیمت تتر به عنوان تخمین استفاده می‌شود.")
-            dollar_price = tether_price
-        
-        print(f"✅ قیمت‌ها با موفقیت دریافت شدند")
-        print(f"💵 دلار: {dollar_price:,.0f} | تتر: {tether_price:,.0f} تومان")
-        return tether_price, dollar_price
+        print(f"✅ قیمت تتر از نوبیتکس دریافت شد: {tether_price:,.0f} تومان")
+        return tether_price
         
     except Exception as e:
-        print(f"❌ خطا در دریافت قیمت‌ها: {e}")
-        return None, None
+        print(f"❌ خطا در دریافت قیمت تتر: {e}")
+        return None
 
-def get_dollar_from_channel():
-    """دریافت قیمت دلار از کانال بله (با شناسه @channel_username)"""
-    try:
-        # شناسه کانال خود را اینجا وارد کنید
-        CHANNEL_ID = "@your_channel_username"  # ← این را تغییر دهید
-        
-        url = f"https://api.bale.ai/bot{BALE_TOKEN}/getUpdates"
-        params = {
-            "chat_id": CHANNEL_ID,
-            "limit": 5  # دریافت ۵ پیام آخر
-        }
-        
-        response = requests.get(url, params=params, timeout=15)
-        if response.status_code != 200:
-            print(f"⚠️ خطا در دریافت از کانال: {response.status_code}")
-            return None
-            
-        data = response.json()
-        if not data.get('result'):
-            print("⚠️ پیامی در کانال یافت نشد.")
-            return None
-            
-        # بررسی آخرین پیام‌ها برای پیدا کردن قیمت
-        import re
-        for msg in reversed(data['result']):
-            if 'text' in msg:
-                text = msg['text']
-                # جستجوی اعداد با کاما یا بدون کاما
-                numbers = re.findall(r'[\d,]+', text)
-                if numbers:
-                    clean_text = numbers[0].replace(',', '')
-                    price = float(clean_text)
-                    # اگر عدد بزرگتر از ۱۰۰۰۰ بود، احتمالاً قیمت است
-                    if price > 10000:
-                        print(f"✅ قیمت دلار از کانال دریافت شد: {price}")
-                        return price
-        
-        print("⚠️ قیمتی در پیام‌های کانال پیدا نشد.")
-        return None
-        
-    except Exception as e:
-        print(f"⚠️ خطا در دریافت از کانال: {e}")
-        return None
+# ==================== دریافت قیمت‌ها ====================
+def get_prices():
+    """دریافت قیمت تتر از نوبیتکس و دلار از TGJU"""
+    
+    # دریافت قیمت تتر
+    tether_price = get_tether_price()
+    if tether_price is None:
+        return None, None
+    
+    # دریافت قیمت دلار از TGJU
+    dollar_price = get_dollar_price_from_tgju()
+    
+    # اگر TGJU کار نکرد، از قیمت تتر به عنوان تخمین استفاده می‌شود
+    if dollar_price is None or dollar_price == 0:
+        print("⚠️ عدم دسترسی به قیمت دلار. از قیمت تتر به عنوان تخمین استفاده می‌شود.")
+        dollar_price = tether_price
+    
+    print(f"💵 قیمت نهایی: دلار {dollar_price:,.0f} | تتر {tether_price:,.0f} تومان")
+    return tether_price, dollar_price
 
 # ==================== تحلیل و ساخت سیگنال ====================
 def get_emoji(diff):
     if abs(diff) >= THRESHOLD_STRONG:
-        return "🟣"  # بنفش برای اختلاف بالای ۲٪
+        return "🟣"
     elif abs(diff) >= THRESHOLD_NORMAL:
-        return "🔵"  # آبی برای اختلاف بالای ۱٪
+        return "🔵"
     else:
-        return "⚪"  # سفید برای اختلاف کمتر از ۱٪
+        return "⚪"
 
 def check_opportunity(tether, dollar):
     if tether is None or dollar is None:
