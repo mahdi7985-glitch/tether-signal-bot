@@ -8,108 +8,27 @@ BALE_CHAT_ID = "آیدی_چت_بله_خودتان"
 TELEGRAM_TOKEN = "توکن_ربات_تلگرام_خودتان"
 TELEGRAM_CHAT_ID = "آیدی_چت_تلگرام_خودتان"
 
-THRESHOLD_NORMAL = 1.0
-THRESHOLD_STRONG = 2.0
-TOTAL_FEE = 0.38
-
-# ==================== دریافت قیمت ====================
-def get_prices():
+# ==================== دریافت قیمت تتر ====================
+def get_tether_price():
     try:
-        # ۱. دریافت قیمت تتر از نوبیتکس
         print("🔍 دریافت قیمت تتر از نوبیتکس...")
         url_tether = "https://apiv2.nobitex.ir/market/stats?srcCurrency=usdt&dstCurrency=rls"
         response_tether = requests.get(url_tether, timeout=15)
         
         if response_tether.status_code != 200:
             print(f"❌ خطا در دریافت قیمت تتر: {response_tether.status_code}")
-            return None, None
+            return None
             
         tether_data = response_tether.json()
+        # قیمت تتر به تومان (تقسیم بر ۱۰)
         tether_price = float(tether_data['stats']['usdt-rls']['bestSell']) / 10
-        
-        # ۲. دریافت قیمت دلار از arz8.com
-        print("🔍 دریافت قیمت دلار از arz8.com...")
-        url_dollar = "https://api.arz8.com/v1/price/dollar"
-        response_dollar = requests.get(url_dollar, timeout=15)
-        
-        dollar_price = None
-        if response_dollar.status_code == 200:
-            try:
-                dollar_data = response_dollar.json()
-                # ساختار پاسخ معمولاً به صورت {'price': 12345} است
-                dollar_price = float(dollar_data.get('price', 0))
-                print("✅ قیمت دلار از arz8 دریافت شد.")
-            except:
-                print("⚠️ پاسخ arz8 قابل پردازش نبود.")
-        
-        # اگر arz8 کار نکرد، از قیمت تتر به عنوان تخمین استفاده می‌شود
-        if dollar_price is None or dollar_price == 0:
-            print("⚠️ عدم دسترسی به قیمت دلار. از قیمت تتر به عنوان تخمین استفاده می‌شود.")
-            dollar_price = tether_price  # در شرایط عادی، قیمت دلار و تتر نزدیک به هم هستند
-        
-        # بررسی معتبر بودن قیمت‌ها
-        if tether_price == 0 or dollar_price == 0:
-            print("❌ قیمت دریافتی معتبر نیست (صفر)")
-            return None, None
-            
-        print(f"✅ قیمت‌ها با موفقیت دریافت شدند")
-        print(f"💵 دلار: {dollar_price:,.0f} | تتر: {tether_price:,.0f} تومان")
-        return tether_price, dollar_price
+        return tether_price
         
     except Exception as e:
-        print(f"❌ خطا در دریافت قیمت‌ها: {e}")
-        return None, None
+        print(f"❌ خطا در دریافت قیمت تتر: {e}")
+        return None
 
-# ==================== بقیه توابع (بدون تغییر) ====================
-def get_emoji(diff):
-    if abs(diff) >= THRESHOLD_STRONG:
-        return "🟣"
-    elif abs(diff) >= THRESHOLD_NORMAL:
-        return "🔵"
-    else:
-        return "⚪"
-
-def check_opportunity(tether, dollar):
-    if tether is None or dollar is None:
-        return "ERROR", "❌ خطا در دریافت قیمت‌ها"
-    
-    diff_percent = ((tether - dollar) / dollar) * 100
-    net_profit = abs(diff_percent) - TOTAL_FEE
-    emoji = get_emoji(diff_percent)
-    current_time = datetime.now().strftime("%Y/%m/%d - %H:%M")
-    
-    if diff_percent > THRESHOLD_NORMAL:
-        msg = f"""{emoji} **سیگنال فروش تتر**
-
-🔹 اختلاف قیمت: **{diff_percent:.2f}%**
-💰 سود خالص تقریبی: **{net_profit:.2f}%**
-💡 تتر {diff_percent:.2f}% از دلار گران‌تر است.
-
-✅ **اقدام پیشنهادی:** تتر خود را بفروشید و ریال (تومان) بگیرید.
-⏰ زمان: {current_time}"""
-        return "SELL", msg
-    
-    elif diff_percent < -THRESHOLD_NORMAL:
-        msg = f"""{emoji} **سیگنال خرید تتر**
-
-🔹 اختلاف قیمت: **{abs(diff_percent):.2f}%**
-💰 سود خالص تقریبی: **{net_profit:.2f}%**
-💡 دلار {abs(diff_percent):.2f}% از تتر گران‌تر است.
-
-✅ **اقدام پیشنهادی:** با ریال (تومان)، تتر بخرید.
-⏰ زمان: {current_time}"""
-        return "BUY", msg
-    
-    else:
-        msg = f"""⚪ **بازار در تعادل**
-
-🔹 اختلاف فعلی: **{diff_percent:.2f}%**
-🔸 آستانه مورد نیاز برای سیگنال: **{THRESHOLD_NORMAL}%**
-💵 قیمت تتر: **{tether:,.0f}** تومان
-💵 قیمت دلار: **{dollar:,.0f}** تومان
-⏰ زمان: {current_time}"""
-        return "NONE", msg
-
+# ==================== ارسال پیام به بله ====================
 def send_to_bale(msg):
     urls = [
         f"https://api.bale.ai/bot{BALE_TOKEN}/sendMessage",
@@ -131,6 +50,7 @@ def send_to_bale(msg):
             print(f"❌ خطا در بله ({url}): {e}")
     return False
 
+# ==================== ارسال پیام به تلگرام ====================
 def send_to_telegram(msg):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     try:
@@ -149,32 +69,44 @@ def send_to_telegram(msg):
         print(f"❌ خطا در تلگرام: {e}")
         return False
 
+# ==================== تابع اصلی ====================
 def main():
-    print("🤖 ربات سیگنال‌دهنده شروع به کار کرد...")
-    print("📊 در حال دریافت قیمت‌های لحظه‌ای...")
+    print("🤖 ربات تست قیمت تتر شروع به کار کرد...")
+    print("📊 در حال دریافت قیمت لحظه‌ای تتر...")
     
-    tether_price, dollar_price = get_prices()
-    if not tether_price or not dollar_price:
-        print("❌ دریافت قیمت ناموفق. ربات متوقف شد.")
+    # دریافت قیمت تتر
+    tether_price = get_tether_price()
+    
+    if tether_price is None:
+        print("❌ دریافت قیمت تتر ناموفق. ربات متوقف شد.")
         return
     
-    signal_type, message = check_opportunity(tether_price, dollar_price)
+    # ساخت پیام
+    current_time = datetime.now().strftime("%Y/%m/%d - %H:%M")
+    message = f"""💰 **قیمت لحظه‌ای تتر**
+
+💵 قیمت تتر: **{tether_price:,.0f}** تومان
+⏰ زمان: {current_time}
+📌 این یک پیام تست است."""
     
     print("-" * 50)
     print(f"💵 قیمت تتر: {tether_price:,.0f} تومان")
-    print(f"💵 قیمت دلار: {dollar_price:,.0f} تومان")
-    print(f"📊 اختلاف قیمت: {((tether_price - dollar_price) / dollar_price) * 100:.2f}%")
-    print(f"📊 نوع سیگنال: {signal_type}")
     print("-" * 50)
     
-    print("📤 در حال ارسال پیام...")
+    print("📤 در حال ارسال پیام به پیام‌رسان‌ها...")
+    
+    # ارسال به بله
     bale_result = send_to_bale(message)
+    
+    # ارسال به تلگرام
     telegram_result = send_to_telegram(message)
     
+    # نتیجه نهایی
     if bale_result or telegram_result:
         print("✅ پیام حداقل به یکی از پیام‌رسان‌ها ارسال شد.")
     else:
         print("❌ ارسال پیام به هر دو پیام‌رسان ناموفق بود.")
 
+# ==================== اجرا ====================
 if __name__ == "__main__":
     main()
