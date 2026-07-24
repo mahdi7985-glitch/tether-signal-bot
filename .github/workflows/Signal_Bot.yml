@@ -1,30 +1,39 @@
-name: Signal Bot
+name: Signal Bot Runner
 
 on:
   schedule:
-    - cron: '0 */4 * * *'  # هر ۵ دقیقه یکبار
-  workflow_dispatch:       # امکان اجرای دستی
+    - cron: '0 */4 * * *'  # هر ۴ ساعت یکبار
+  workflow_dispatch:       # اجرای دستی
 
 jobs:
-  run-signal-bot:
+  run-bot:
     runs-on: ubuntu-latest
-    
     steps:
-    - name: Checkout repository
-      uses: actions/checkout@v4
+      # ✅ مرحله ۱: تنظیم DNS برای دسترسی به نوبیتکس
+      - name: Fix DNS for Nobitex
+        run: |
+          echo "🌐 تنظیم DNS..."
+          echo "nameserver 8.8.8.8" | sudo tee /etc/resolv.conf
+          echo "nameserver 1.1.1.1" | sudo tee -a /etc/resolv.conf
+          echo "✅ DNS تنظیم شد"
 
-    - name: Set up Python
-      uses: actions/setup-python@v5
-      with:
-        python-version: '3.11'
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-    - name: Install dependencies
-      run: |
-        pip install -r requirements.txt
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
 
-    - name: Run signal bot
-      env:
-        BALE_TOKEN: ${{ secrets.BALE_TOKEN }}
-        BALE_CHAT_ID: ${{ secrets.BALE_CHAT_ID }}
-      run: |
-        python signal_bot.py
+      - name: Install dependencies
+        run: |
+          pip install -r requirements.txt
+
+      - name: Run signal bot
+        env:
+          BALE_TOKEN: ${{ secrets.BALE_TOKEN }}
+          BALE_CHAT_ID: ${{ secrets.BALE_CHAT_ID }}
+          TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python signal_bot.py
