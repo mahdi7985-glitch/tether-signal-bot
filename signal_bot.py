@@ -8,29 +8,25 @@ import sys
 BALE_TOKEN = "124178101:nDLCPlvd_KlqblUI-6jrbBUCIbx99RRsedU"
 BALE_CHAT_ID = "1049670320"
 
-TELEGRAM_TOKEN = "8925877849:AAECDTzPuETHqhUbFbLoTt7O5UespZWOZ7M"
+TELEGRAM_TOKEN = "8925877849:AAECDTzPuETHqhUbBfLoTt7O5UespZWOZ7M"
 TELEGRAM_CHAT_ID = "292739287"
 
 THRESHOLD_NORMAL = 1.0
 THRESHOLD_STRONG = 2.0
-TOTAL_FEE = 0.38
+TOTAL_FEE = 0.35
 
-# ==================== دریافت قیمت دلار از TGJU (اصلاح‌شده) ====================
+# ==================== دریافت قیمت دلار از TGJU ====================
 def get_dollar_price_from_tgju():
     try:
         print("🔍 تلاش برای دریافت قیمت دلار از TGJU...")
         url = "https://www.tgju.org/profile/price_dollar_rl"
-        
         headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
         }
-        
         response = requests.get(url, headers=headers, timeout=15)
         response.raise_for_status()
-        
         soup = BeautifulSoup(response.text, 'html.parser')
         
-        # روش اصلی: جستجوی عنصر با data-col='last'
         price_element = soup.find('span', {'data-col': 'last'})
         if price_element:
             price_text = price_element.get_text().strip()
@@ -42,14 +38,12 @@ def get_dollar_price_from_tgju():
                 print(f"✅ قیمت دلار از TGJU دریافت شد: {price:,.0f} تومان")
                 return price
         
-        # روش جایگزین: جستجوی اعداد بزرگ در صفحه
         text = soup.get_text()
         numbers = re.findall(r'(\d{1,3}(?:,\d{3})*\.?\d*)', text)
         for num in numbers:
             clean_num = num.replace(',', '')
             if clean_num.replace('.', '').isdigit():
                 price = float(clean_num)
-                # محدوده منطقی برای قیمت دلار به ریال: ۱۰۰,۰۰۰ تا ۱۰,۰۰۰,۰۰۰
                 if 100000 < price < 10000000:
                     price = price / 10
                     print(f"✅ قیمت دلار از TGJU دریافت شد: {price:,.0f} تومان")
@@ -90,7 +84,6 @@ def get_prices():
     
     dollar_price = get_dollar_price_from_tgju()
     
-    # اگر TGJU کار نکرد، از قیمت تتر به عنوان تخمین استفاده می‌شود
     if dollar_price is None or dollar_price == 0:
         print("⚠️ عدم دسترسی به قیمت دلار. از قیمت تتر به عنوان تخمین استفاده می‌شود.")
         dollar_price = tether_price
@@ -98,7 +91,7 @@ def get_prices():
     print(f"💵 قیمت نهایی: دلار {dollar_price:,.0f} | تتر {tether_price:,.0f} تومان")
     return tether_price, dollar_price
 
-# ==================== تحلیل و ساخت سیگنال ====================
+# ==================== تحلیل و ساخت سیگنال (با توضیحات مکالمه‌وار) ====================
 def get_emoji(diff):
     if abs(diff) >= THRESHOLD_STRONG:
         return "🟣"
@@ -106,6 +99,25 @@ def get_emoji(diff):
         return "🔵"
     else:
         return "⚪"
+
+def get_friendly_suggestion(signal_type, diff_percent, net_profit):
+    """بر اساس وضعیت، یک پیشنهاد دوستانه و مکالمه‌وار برمی‌گرداند"""
+    
+    if signal_type == "SELL":
+        return f"""✅ **پیشنهاد من به شما:** 
+فروش تتر در این لحظه می‌تونه انتخاب خوبی باشه! تتر حدوداً {diff_percent:.2f}٪ از دلار گران‌تر شده و این یعنی شما می‌تونید تترهاتون رو بفروشید و با سود حدوداً {net_profit:.2f}٪ ریال دریافت کنید. 
+🚀 پیشنهاد می‌کنم سریعاً اقدام کنید قبل از اینکه بازار برگردد!"""
+    
+    elif signal_type == "BUY":
+        return f"""✅ **پیشنهاد من به شما:** 
+الان وقت خرید تتره! دلار حدوداً {abs(diff_percent):.2f}٪ از تتر گران‌تر شده. یعنی می‌تونید با ریالتون تتر بخرید و وقتی بازار متعادل شد، با سود حدوداً {net_profit:.2f}٪ بفروشید. 
+🟢 به نظر می‌رسه یه فرصت خوب پیش اومده، ازش استفاده کنید!"""
+    
+    else:  # NONE - بازار در تعادل
+        return f"""⏳ **پیشنهاد من به شما:** 
+همین الان بازار خیلی آرومه و اختلاف قیمت فقط {diff_percent:.2f}٪ هست. این اختلاف برای سوددهی کافی نیست (چون کارمزدها حدوداً {TOTAL_FEE:.2f}٪ هستن). 
+پس فعلاً **دست نگه دارید** و صبر کنید. وقتی اختلاف به بالای {THRESHOLD_NORMAL}٪ رسید، من به شما خبر می‌دم! 
+🧘‍♂️ آروم باشید و به ربات اعتماد کنید. 😊"""
 
 def check_opportunity(tether, dollar):
     if tether is None or dollar is None:
@@ -116,6 +128,15 @@ def check_opportunity(tether, dollar):
     emoji = get_emoji(diff_percent)
     current_time = datetime.now().strftime("%Y/%m/%d - %H:%M")
     
+    # گرفتن پیشنهاد دوستانه
+    suggestion = get_friendly_suggestion(
+        "SELL" if diff_percent > THRESHOLD_NORMAL else 
+        "BUY" if diff_percent < -THRESHOLD_NORMAL else 
+        "NONE",
+        diff_percent,
+        net_profit
+    )
+    
     if diff_percent > THRESHOLD_NORMAL:
         msg = f"""{emoji} **سیگنال فروش تتر**
 
@@ -123,7 +144,8 @@ def check_opportunity(tether, dollar):
 💰 سود خالص تقریبی: **{net_profit:.2f}%**
 💡 تتر {diff_percent:.2f}% از دلار گران‌تر است.
 
-✅ **اقدام پیشنهادی:** تتر خود را بفروشید و ریال (تومان) بگیرید.
+{suggestion}
+
 ⏰ زمان: {current_time}"""
         return "SELL", msg
     
@@ -134,7 +156,8 @@ def check_opportunity(tether, dollar):
 💰 سود خالص تقریبی: **{net_profit:.2f}%**
 💡 دلار {abs(diff_percent):.2f}% از تتر گران‌تر است.
 
-✅ **اقدام پیشنهادی:** با ریال (تومان)، تتر بخرید.
+{suggestion}
+
 ⏰ زمان: {current_time}"""
         return "BUY", msg
     
@@ -145,10 +168,13 @@ def check_opportunity(tether, dollar):
 🔸 آستانه مورد نیاز برای سیگنال: **{THRESHOLD_NORMAL}%**
 💵 قیمت تتر: **{tether:,.0f}** تومان
 💵 قیمت دلار: **{dollar:,.0f}** تومان
+
+{suggestion}
+
 ⏰ زمان: {current_time}"""
         return "NONE", msg
 
-# ==================== ارسال پیام ====================
+# ==================== ارسال پیام به بله ====================
 def send_to_bale(msg):
     urls = [
         f"https://api.bale.ai/bot{BALE_TOKEN}/sendMessage",
@@ -170,6 +196,7 @@ def send_to_bale(msg):
             print(f"❌ خطا در بله ({url}): {e}")
     return False
 
+# ==================== ارسال پیام به تلگرام ====================
 def send_to_telegram(msg):
     url = f"https://api.telegram.org/bot{TELEGRAM_TOKEN}/sendMessage"
     try:
